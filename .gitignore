@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Caché local de la biblioteca del reproductor (export.pdb, análisis, carátulas)
+.prolink-cache/
+
+# Capturas y ficheros de trabajo
+*.pcapng
+*.pcap

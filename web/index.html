@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engine Room — Pro DJ Link</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --black:#07080a;
+  --panel:#0e1014;
+  --panel-high:#14171d;
+  --line:#22262f;
+  --line-bright:#333945;
+  --text:#e8eaf0;
+  --dim:#7b8291;
+  --dimmest:#4a505c;
+  --red:#ff3b30;
+  --d1:#ffb020;
+  --d2:#22d3ee;
+  --d3:#f472b6;
+  --d4:#4ade80;
+  --mono:'Chakra Petch',Consolas,'Cascadia Mono',monospace;
+  --sans:'Archivo','Segoe UI',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--black);
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:14px;
+  overflow:hidden;
+  display:flex;flex-direction:column;      /* deck heights share what is left */
+  -webkit-font-smoothing:antialiased;
+}
+/* faint grain over the whole panel */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:99;opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:98;
+  background:radial-gradient(ellipse 120% 80% at 50% 0%,transparent 40%,rgba(0,0,0,.55) 100%);
+}
+
+/* ------------------------------------------------------------------- header */
+header{
+  display:flex;align-items:center;gap:18px;flex:none;flex-wrap:nowrap;overflow:hidden;
+  padding:10px 20px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,var(--panel-high),var(--panel));
+  position:relative;z-index:2;
+}
+.brand{font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:.16em;
+  text-transform:uppercase;white-space:nowrap;flex:none}
+.brand span{color:var(--dimmest);font-weight:500}
+.pill{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--dim);border:1px solid var(--line);border-radius:2px;padding:3px 9px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
+}
+.pill b{color:var(--text);font-weight:600}
+#p-lib{flex:0 1 auto}
+.right{margin-left:auto;display:flex;gap:9px;align-items:center}
+.switch{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.switch button{
+  font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.08em;
+  background:transparent;color:var(--dim);border:none;border-left:1px solid var(--line);
+  padding:4px 11px;cursor:pointer;transition:.15s;line-height:1.4;
+}
+.switch button:first-child{border-left:none}
+.switch button:hover{color:var(--text);background:var(--panel-high)}
+.switch button.on{background:var(--text);color:var(--black)}
+.switch-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--dimmest)}
+.led{width:6px;height:6px;border-radius:50%;background:var(--dimmest);transition:.3s}
+.led.up{background:var(--d4);box-shadow:0 0 8px var(--d4)}
+.led.down{background:var(--red);box-shadow:0 0 8px var(--red)}
+
+/* -------------------------------------------------------------------- decks */
+#decks{flex:1;min-height:0;display:flex;flex-direction:column;position:relative;z-index:1}
+.deck{
+  flex:1;min-height:0;display:grid;
+  grid-template-columns:238px minmax(0,1fr) 214px;
+  border-bottom:1px solid var(--line);
+  background:var(--panel);
+  position:relative;overflow:hidden;
+  transition:background .25s;
+}
+.deck:last-child{border-bottom:none}
+.deck::before{                       /* deck colour bar */
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--c);opacity:.28;transition:opacity .1s,box-shadow .1s;
+}
+.deck.beat::before{opacity:1;box-shadow:0 0 16px 1px var(--c)}
+.deck.empty{flex:0 0 46px;background:#0a0c0f}
+.deck.empty .identity,.deck.empty .canvases,.deck.empty .readouts{opacity:.3}
+.deck.onair{background:linear-gradient(90deg,rgba(255,59,48,.05),transparent 30%)}
+/* a deck with a track but a closed mixer channel goes dark, so you can tell at
+   a glance which channels are open. The label saying why stays readable. */
+.deck.offair .canvases{opacity:.34;filter:saturate(.3)}
+.deck.offair .art,.deck.offair .title,.deck.offair .artist,
+.deck.offair .meta,.deck.offair .num{opacity:.45}
+.deck.offair .readouts{opacity:.5}
+
+/* --- left column: identity --- */
+.identity{padding:11px 14px 11px 17px;display:flex;gap:11px;min-width:0;align-items:flex-start}
+.art{
+  width:62px;height:62px;flex:none;border-radius:3px;background:var(--panel-high);
+  border:1px solid var(--line);object-fit:cover;
+}
+.art.blank{display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:22px;color:var(--dimmest)}
+.who{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
+.num-row{display:flex;align-items:baseline;gap:7px}
+.num{font-family:var(--mono);font-size:19px;font-weight:700;color:var(--c);line-height:1}
+.tags{display:flex;gap:4px;flex-wrap:wrap}
+.tag{
+  font-family:var(--mono);font-size:8.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;padding:1.5px 4.5px;border-radius:2px;line-height:1.3;
+  border:1px solid currentColor;
+}
+.tag.master{color:#ffd45e}
+.tag.sync{color:var(--dim)}
+.tag.onair{color:var(--red);background:rgba(255,59,48,.12)}
+.tag.closed{color:var(--dim);background:rgba(255,255,255,.05)}
+.title{
+  font-size:14.5px;font-weight:600;line-height:1.22;
+  overflow:hidden;text-overflow:ellipsis;display:-webkit-box;
+  -webkit-line-clamp:2;-webkit-box-orient:vertical;
+}
+.artist{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;color:var(--dimmest);
+  text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.art,.title,.artist,.meta,.num,.readouts{transition:opacity .25s}
+
+/* --- middle: waveforms --- */
+.canvases{position:relative;display:flex;flex-direction:column;
+  border-left:1px solid var(--line);border-right:1px solid var(--line);
+  transition:opacity .25s,filter .25s}
+.overview{height:26%;min-height:26px;position:relative;border-bottom:1px solid var(--line);background:#0b0d10}
+.detail{flex:1;position:relative;background:#080a0c}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.no-wave{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--dimmest);
+}
+
+/* --- right: readouts --- */
+.readouts{padding:9px 14px 9px 13px;display:flex;flex-direction:column;
+  justify-content:center;gap:2px;min-width:0;overflow:hidden}
+.bpm{font-family:var(--mono);font-size:33px;font-weight:700;line-height:.98;
+  letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.bpm small{font-size:12px;font-weight:500;color:var(--dimmest);letter-spacing:.1em;margin-left:4px}
+.pitch{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--dim);
+  font-variant-numeric:tabular-nums}
+.pitch.up{color:#ff9f45}.pitch.down{color:#5eb0ff}
+.times{display:flex;gap:11px;margin-top:5px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.time .v{font-size:16px;font-weight:600;line-height:1.1}
+.time .k{font-size:8.5px;letter-spacing:.13em;color:var(--dimmest);text-transform:uppercase}
+.time.left .v{color:var(--dim)}
+.time.left.low .v{color:var(--red)}
+.state-row{display:flex;align-items:center;gap:8px;margin-top:7px;min-width:0}
+.state{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.bar-dots{display:flex;gap:3px;flex:none}
+.bar-dots i{width:10px;height:3px;background:var(--line-bright);border-radius:1px;transition:.08s}
+.bar-dots i.on{background:var(--c);box-shadow:0 0 7px var(--c)}
+.key{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--c);
+  flex:none;letter-spacing:.03em}
+
+/* ------------------------------------------------------------------ waiting */
+#waiting{
+  position:fixed;inset:46px 0 0 0;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:15px;text-align:center;z-index:3;
+  background:var(--black);padding:30px;
+}
+#waiting.show{display:flex}
+#waiting h2{font-family:var(--mono);font-size:16px;font-weight:600;letter-spacing:.13em;text-transform:uppercase}
+#waiting p{color:var(--dim);max-width:520px;line-height:1.65;font-size:13px}
+.spinner{width:26px;height:26px;border:2px solid var(--line);border-top-color:var(--d2);
+  border-radius:50%;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand" data-i18n="brand">Engine Room <span>// pro dj link</span></div>
+  <div class="pill" id="p-mode" data-i18n="starting">starting…</div>
+  <div class="pill" id="p-lib"></div>
+  <div class="right">
+    <span class="switch-label" data-i18n="zoom">zoom</span>
+    <div class="switch" id="zoom-switch">
+      <button data-s="4">4s</button><button data-s="8">8s</button><button data-s="16">16s</button><button data-s="32">32s</button>
+    </div>
+    <span class="switch-label" data-i18n="decks">decks</span>
+    <div class="switch" id="deck-switch">
+      <button data-n="2">2</button><button data-n="3">3</button><button data-n="4">4</button>
+    </div>
+    <div class="switch" id="lang-switch">
+      <button data-lang="en">EN</button><button data-lang="es">ES</button>
+    </div>
+    <div class="pill" id="p-dev"></div>
+    <div class="led" id="led"></div>
+  </div>
+</header>
+
+<div id="decks"></div>
+
+<div id="waiting" class="show">
+  <div class="spinner"></div>
+  <h2 data-i18n="waitingTitle">Waiting for the player</h2>
+  <p id="waiting-text"></p>
+</div>
+
+<script>
+/* -------------------------------------------------------------------- i18n */
+const STRINGS = {
+  en: {
+    brand: 'Engine Room <span>// pro dj link</span>',
+    starting: 'starting…',
+    decks: 'decks', zoom: 'zoom',
+    mode: 'mode', library: 'library', devices: 'devices', tracks: 'tracks',
+    noDevices: 'no devices',
+    elapsed: 'elapsed', remaining: 'remaining',
+    noTrack: 'no track', noTrackLoaded: 'no track loaded', loading: 'loading…',
+    waitingTitle: 'Waiting for the player',
+    searching: 'Looking for players on the network…',
+    seenNoStatus: 'Devices are visible on the network but none is sending status yet.',
+    connecting: 'connecting…',
+    master: 'master', sync: 'sync', onAir: 'on air', channelClosed: 'channel closed',
+    modeVcdj: 'virtual device', modeSniffer: 'passive capture',
+    state: {
+      no_track: 'no track', loading: 'loading', playing: 'playing',
+      looping: 'looping', paused: 'paused', cued: 'cued', cue_play: 'cue play',
+      cue_scratch: 'cue scratch', searching: 'searching', unplayable: 'unplayable',
+      end_of_track: 'end of track', emergency: 'emergency', unknown: 'unknown'
+    }
+  },
+  es: {
+    brand: 'Sala de máquinas <span>// pro dj link</span>',
+    starting: 'iniciando…',
+    decks: 'decks', zoom: 'zoom',
+    mode: 'modo', library: 'biblioteca', devices: 'dispositivos', tracks: 'pistas',
+    noDevices: 'sin dispositivos',
+    elapsed: 'transcurrido', remaining: 'restante',
+    noTrack: 'sin pista', noTrackLoaded: 'sin pista cargada', loading: 'cargando…',
+    waitingTitle: 'Esperando al equipo',
+    searching: 'Buscando reproductores en la red…',
+    seenNoStatus: 'Se ven dispositivos en la red pero ninguno envía su estado todavía.',
+    connecting: 'conectando…',
+    master: 'master', sync: 'sync', onAir: 'on air', channelClosed: 'canal cerrado',
+    modeVcdj: 'dispositivo virtual', modeSniffer: 'escucha pasiva',
+    state: {
+      no_track: 'sin pista', loading: 'cargando', playing: 'reproduciendo',
+      looping: 'loop', paused: 'pausa', cued: 'en cue', cue_play: 'cue play',
+      cue_scratch: 'cue scratch', searching: 'buscando', unplayable: 'no reproducible',
+      end_of_track: 'fin de pista', emergency: 'emergencia', unknown: 'desconocido'
+    }
+  }
+};
+
+/* English unless the browser asks for Spanish; a manual pick wins and is kept. */
+function detectLang() {
+  const saved = localStorage.getItem('lang');
+  if (saved && STRINGS[saved]) return saved;
+  const wanted = navigator.languages || [navigator.language || 'en'];
+  return wanted.some(l => String(l).toLowerCase().startsWith('es')) ? 'es' : 'en';
+}
+let lang = detectLang();
+const T = k => STRINGS[lang][k];
+const stateText = k => STRINGS[lang].state[k] || k;
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  localStorage.setItem('lang', lang);
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const v = STRINGS[lang][el.dataset.i18n];
+    if (v !== undefined) el.innerHTML = v;
+  });
+  document.querySelectorAll('#lang-switch button').forEach(
+    b => b.classList.toggle('on', b.dataset.lang === lang));
+  for (const d of decks.values()) {
+    d.elapsedLabel.textContent = T('elapsed');
+    d.remainingLabel.textContent = T('remaining');
+    d.trackId = -1;                       // force the info block to repaint
+  }
+  if (last) applyState(last);
+}
+
+/* ------------------------------------------------------------------- state */
+const DECK_COLORS = {1:'--d1',2:'--d2',3:'--d3',4:'--d4',5:'--d1',6:'--d2'};
+const ZOOM_LEVELS = [4, 8, 16, 32];      // seconds of track shown in the detail view
+let visibleSeconds = ZOOM_LEVELS.includes(+localStorage.getItem('zoom'))
+  ? +localStorage.getItem('zoom') : 8;
+
+const decks = new Map();          // number -> deck view
+const tracks = new Map();         // id -> {meta, detail, overview}
+const pending = new Set();
+let last = null, receivedAt = 0;
+let maxDecks = Math.min(4, Math.max(2, +localStorage.getItem('maxDecks') || 4));
+
+/* Visible decks: the ones holding a track first, then by number. Ask for 2 and
+   you see the two that are loaded even if they are decks 3 and 4. */
+function visible(list) {
+  return [...list]
+    .sort((a, b) => (a.track_id ? 0 : 1) - (b.track_id ? 0 : 1) || a.number - b.number)
+    .slice(0, maxDecks)
+    .sort((a, b) => a.number - b.number);
+}
+
+function prune(list) {
+  const alive = new Set(list.map(d => d.number));
+  for (const [n, d] of decks) if (!alive.has(n)) { d.el.remove(); decks.delete(n); }
+}
+
+function setZoom(seconds) {
+  visibleSeconds = seconds;
+  localStorage.setItem('zoom', seconds);
+  document.querySelectorAll('#zoom-switch button').forEach(
+    b => b.classList.toggle('on', +b.dataset.s === seconds));
+  for (const d of decks.values()) d.overviewId = null;   // force a redraw
+}
+
+function stepZoom(direction) {
+  const i = ZOOM_LEVELS.indexOf(visibleSeconds);
+  const next = ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, Math.max(0, i + direction))];
+  if (next !== visibleSeconds) setZoom(next);
+}
+
+function setDeckCount(n) {
+  maxDecks = n;
+  localStorage.setItem('maxDecks', n);
+  document.querySelectorAll('#deck-switch button').forEach(
+    b => b.classList.toggle('on', +b.dataset.n === n));
+  if (last) prune(visible(last.decks));
+}
+
+/* --------------------------------------------------------------- utilities */
+const mmss = ms => {
+  if (!isFinite(ms) || ms < 0) ms = 0;
+  const t = Math.floor(ms / 1000);
+  return `${String(Math.floor(t / 60)).padStart(2,'0')}:${String(t % 60).padStart(2,'0')}`;
+};
+
+function readWaveform(buf, off) {
+  const dv = new DataView(buf);
+  const n = dv.getUint32(off + 8, true);
+  const cps = dv.getFloat32(off + 12, true);
+  const dur = dv.getUint32(off + 16, true);
+  const h = new Uint8Array(buf, off + 24, n);
+  const rgb = new Uint8Array(buf, off + 24 + n, n * 3);
+  return {n, cps, dur, h, rgb, end: off + 24 + n * 4};
+}
+
+async function loadTrack(id) {
+  if (tracks.has(id) || pending.has(id)) return;
+  pending.add(id);
+  try {
+    const [meta, buf] = await Promise.all([
+      fetch(`/api/track/${id}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/waveform/${id}`).then(r => r.ok ? r.arrayBuffer() : null)
+    ]);
+    if (!meta) return;
+    let detail = null, overview = null;
+    if (buf) { detail = readWaveform(buf, 0); overview = readWaveform(buf, detail.end); }
+    tracks.set(id, {meta, detail, overview});
+  } finally { pending.delete(id); }
+}
+
+/* ------------------------------------------------------------ deck creation */
+function createDeck(n) {
+  const el = document.createElement('div');
+  el.className = 'deck';
+  el.style.setProperty('--c', `var(${DECK_COLORS[n] || '--d1'})`);
+  el.innerHTML = `
+    <div class="identity">
+      <div class="art blank" data-art>&#9834;</div>
+      <div class="who">
+        <div class="num-row"><span class="num">${n}</span><div class="tags" data-tags></div></div>
+        <div class="title" data-title>—</div>
+        <div class="artist" data-artist></div>
+        <div class="meta" data-meta></div>
+      </div>
+    </div>
+    <div class="canvases">
+      <div class="overview"><canvas data-cv-overview></canvas></div>
+      <div class="detail"><canvas data-cv-detail></canvas><div class="no-wave" data-nowave></div></div>
+    </div>
+    <div class="readouts">
+      <div class="bpm" data-bpm>—<small>BPM</small></div>
+      <div class="pitch" data-pitch></div>
+      <div class="times">
+        <div class="time"><div class="v" data-elapsed>00:00</div><div class="k" data-elapsed-label></div></div>
+        <div class="time left"><div class="v" data-remaining>00:00</div><div class="k" data-remaining-label></div></div>
+      </div>
+      <div class="state-row">
+        <div class="bar-dots" data-bar><i></i><i></i><i></i><i></i></div>
+        <div class="state" data-state></div>
+        <div class="key" data-key></div>
+      </div>
+    </div>`;
+  const q = s => el.querySelector(s);
+  const d = {
+    n, el,
+    art: q('[data-art]'), tags: q('[data-tags]'), title: q('[data-title]'),
+    artist: q('[data-artist]'), meta: q('[data-meta]'), noWave: q('[data-nowave]'),
+    bpm: q('[data-bpm]'), pitch: q('[data-pitch]'), elapsed: q('[data-elapsed]'),
+    remaining: q('[data-remaining]'), state: q('[data-state]'), key: q('[data-key]'),
+    elapsedLabel: q('[data-elapsed-label]'), remainingLabel: q('[data-remaining-label]'),
+    barDots: [...q('[data-bar]').children],
+    cvOverview: q('[data-cv-overview]'), cvDetail: q('[data-cv-detail]'),
+    trackId: 0, metaId: 0, artId: 0, lastBar: 0
+  };
+  d.ctxOverview = d.cvOverview.getContext('2d');
+  d.ctxDetail = d.cvDetail.getContext('2d');
+  d.elapsedLabel.textContent = T('elapsed');
+  d.remainingLabel.textContent = T('remaining');
+  d.noWave.textContent = T('noTrack');
+  decks.set(n, d);
+  return d;
+}
+
+function sortDecks() {
+  const box = document.getElementById('decks');
+  [...decks.values()].sort((a, b) => a.n - b.n).forEach(d => box.appendChild(d.el));
+}
+
+/* --------------------------------------------------------------------- info */
+function drawInfo(d, s) {
+  const track = tracks.get(s.track_id);
+  const m = track && track.meta;
+  d.el.classList.toggle('empty', !s.track_id);
+  d.el.classList.toggle('onair', !!s.on_air);
+  d.el.classList.toggle('offair', !!s.track_id && !s.on_air);
+
+  // repaint on track change, and again once its metadata arrives
+  if (d.trackId !== s.track_id || (m && d.metaId !== s.track_id)) {
+    d.trackId = s.track_id;
+    if (m) d.metaId = s.track_id;
+    d.title.textContent = m ? (m.title || '—') : (s.track_id ? T('loading') : '—');
+    d.artist.textContent = m ? m.artist : '';
+    d.meta.textContent = m
+      ? [m.album, m.genre, m.label, m.year || ''].filter(Boolean).join(' · ')
+      : (s.track_id ? '' : T('noTrackLoaded'));
+    d.key.textContent = m ? m.key : '';
+    d.noWave.textContent = T('noTrack');
+    d.noWave.style.display = s.track_id ? 'none' : 'flex';
+    if (s.track_id && m && m.has_artwork) {
+      if (d.artId !== s.track_id) {
+        d.artId = s.track_id;
+        const img = new Image();
+        img.onload = () => { d.art.replaceWith(img); img.className = 'art'; d.art = img; };
+        img.src = `/api/artwork/${s.track_id}`;
+      }
+    } else if (d.art.tagName === 'IMG') {
+      const blank = document.createElement('div');
+      blank.className = 'art blank'; blank.innerHTML = '&#9834;';
+      d.art.replaceWith(blank); d.art = blank; d.artId = 0;
+    }
+  }
+
+  const tags = [];
+  if (s.master) tags.push(`<span class="tag master">${T('master')}</span>`);
+  if (s.sync) tags.push(`<span class="tag sync">${T('sync')}</span>`);
+  if (s.on_air) tags.push(`<span class="tag onair">${T('onAir')}</span>`);
+  else if (s.track_id) tags.push(`<span class="tag closed">${T('channelClosed')}</span>`);
+  const html = tags.join('');
+  if (d.tags.innerHTML !== html) d.tags.innerHTML = html;
+
+  d.bpm.innerHTML = s.bpm ? `${s.bpm.toFixed(2)}<small>BPM</small>` : `—<small>BPM</small>`;
+  const p = s.pitch;
+  d.pitch.textContent = s.track_id ? `${p >= 0 ? '+' : ''}${p.toFixed(2)} %` : '';
+  d.pitch.className = 'pitch ' + (p > 0.01 ? 'up' : p < -0.01 ? 'down' : '');
+  d.state.textContent = stateText(s.state);
+}
+
+/* ---------------------------------------------------------------- waveforms */
+function fitCanvas(cv) {
+  const r = window.devicePixelRatio || 1;
+  const w = Math.round(cv.clientWidth * r), h = Math.round(cv.clientHeight * r);
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; return true; }
+  return false;
+}
+
+function drawOverview(d, track, pos) {
+  const cv = d.cvOverview, ctx = d.ctxOverview;
+  const resized = fitCanvas(cv);
+  const W = cv.width, H = cv.height;
+  if (!track || !track.overview || !track.overview.n) { ctx.clearRect(0, 0, W, H); return; }
+
+  if (resized || d.overviewId !== track.meta.id) {          // drawn once per track
+    d.overviewId = track.meta.id;
+    const off = document.createElement('canvas');
+    off.width = W; off.height = H;
+    const o = off.getContext('2d');
+    const {n, h, rgb} = track.overview, mid = H / 2;
+    for (let x = 0; x < W; x++) {
+      const i = Math.min(n - 1, Math.floor(x * n / W));
+      const tall = (h[i] / 31) * mid * 0.94;
+      o.fillStyle = `rgb(${rgb[i*3]},${rgb[i*3+1]},${rgb[i*3+2]})`;
+      o.fillRect(x, mid - tall, 1, tall * 2);
+    }
+    d.overviewOff = off;
+  }
+  ctx.clearRect(0, 0, W, H);
+  ctx.globalAlpha = .55; ctx.drawImage(d.overviewOff, 0, 0); ctx.globalAlpha = 1;
+
+  const dur = track.meta.duration_ms || 1;
+  const px = Math.max(0, Math.min(W, (pos / dur) * W));
+  ctx.save();                                   // the part already played, full brightness
+  ctx.beginPath(); ctx.rect(0, 0, px, H); ctx.clip();
+  ctx.drawImage(d.overviewOff, 0, 0);
+  ctx.restore();
+
+  for (const c of track.meta.cues) {            // cue markers
+    const cx = (c.t / dur) * W;
+    ctx.fillStyle = c.color ? `rgb(${c.color[0]},${c.color[1]},${c.color[2]})`
+                            : (c.hot ? '#ffd45e' : '#ffffff');
+    ctx.fillRect(cx, 0, Math.max(1, W / 900), H);
+  }
+  ctx.fillStyle = getComputedStyle(d.el).getPropertyValue('--c');
+  ctx.fillRect(px - 1, 0, 2, H);
+}
+
+function drawDetail(d, track, pos, playing) {
+  const cv = d.cvDetail, ctx = d.ctxDetail;
+  fitCanvas(cv);
+  const W = cv.width, H = cv.height, r = window.devicePixelRatio || 1;
+  ctx.clearRect(0, 0, W, H);
+  if (!track || !track.detail || !track.detail.n) return;
+
+  const {n, cps, h, rgb} = track.detail;
+  const mid = H / 2;
+  const visibleCols = visibleSeconds * cps;
+  const pxPerCol = W / visibleCols;
+  const currentCol = (pos / 1000) * cps;
+  const start = currentCol - visibleCols / 2;
+
+  // bar grid behind the waveform
+  const meta = track.meta;
+  if (meta.beats && meta.beats.length) {
+    const t0 = (start / cps) * 1000, t1 = ((start + visibleCols) / cps) * 1000;
+    ctx.lineWidth = 1;
+    for (const [t, number] of meta.beats) {
+      if (t < t0 - 500) continue;
+      if (t > t1 + 500) break;
+      const x = ((t / 1000) * cps - start) * pxPerCol;
+      ctx.strokeStyle = number === 1 ? 'rgba(255,255,255,.20)' : 'rgba(255,255,255,.06)';
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+  }
+
+  // The waveform. Every column falling inside a pixel is inspected and the peak
+  // wins: at 150 columns per second there are almost always more columns than
+  // pixels, so sampling just one of them would quietly drop the transients.
+  for (let px = 0; px < W; px += 1) {
+    let lo = Math.floor(start + px / pxPerCol);
+    let hi = Math.ceil(start + (px + 1) / pxPerCol);
+    if (hi <= lo) hi = lo + 1;
+    if (hi <= 0 || lo >= n) continue;
+    if (lo < 0) lo = 0;
+    if (hi > n) hi = n;
+    let tall = 0, src = lo;
+    for (let i = lo; i < hi; i++) if (h[i] > tall) { tall = h[i]; src = i; }
+    const a = (tall / 31) * mid * 0.92;
+    ctx.fillStyle = `rgb(${rgb[src*3]},${rgb[src*3+1]},${rgb[src*3+2]})`;
+    ctx.fillRect(px, mid - a, 1, a * 2);
+  }
+
+  // cues in view
+  for (const c of meta.cues) {
+    const x = ((c.t / 1000) * cps - start) * pxPerCol;
+    if (x < -20 || x > W + 20) continue;
+    ctx.fillStyle = c.color ? `rgb(${c.color[0]},${c.color[1]},${c.color[2]})`
+                            : (c.hot ? '#ffd45e' : '#ffffff');
+    ctx.fillRect(x - 1, 0, 2, H);
+    if (c.hot) {
+      ctx.fillRect(x - 6 * r, 0, 12 * r, 9 * r);
+      ctx.fillStyle = '#000'; ctx.font = `600 ${8*r}px Chakra Petch, monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(String.fromCharCode(64 + c.hot), x, 7 * r);
+    }
+  }
+
+  // playhead, fixed in the middle
+  ctx.fillStyle = getComputedStyle(d.el).getPropertyValue('--c').trim();
+  ctx.fillRect(W / 2 - 1 * r, 0, 2 * r, H);
+  ctx.globalAlpha = playing ? .18 : .07;
+  ctx.fillRect(W / 2 - 9 * r, 0, 18 * r, H);
+  ctx.globalAlpha = 1;
+}
+
+/* --------------------------------------------------------------------- loop */
+function render() {
+  requestAnimationFrame(render);
+  if (!last) return;
+  const dt = (performance.now() - receivedAt) / 1000;
+
+  for (const s of visible(last.decks)) {
+    let d = decks.get(s.number);
+    if (!d) {
+      d = createDeck(s.number);
+      document.getElementById('decks').appendChild(d.el);
+      sortDecks();
+    }
+
+    // extrapolate the playhead from the last state we received
+    let pos = s.position_ms + (s.playing ? dt * 1000 * s.speed : 0);
+    if (s.duration_ms) pos = Math.min(pos, s.duration_ms);
+
+    drawInfo(d, s);
+    const track = tracks.get(s.track_id);
+    if (s.track_id && !track) loadTrack(s.track_id);
+
+    d.elapsed.textContent = mmss(pos);
+    const remaining = (s.duration_ms || 0) - pos;
+    d.remaining.textContent = '-' + mmss(remaining);
+    d.remaining.parentElement.classList.toggle('low',
+      s.duration_ms > 0 && remaining < 30000);
+
+    for (let i = 0; i < 4; i++) d.barDots[i].classList.toggle('on', s.bar === i + 1);
+    if (s.bar === 1 && d.lastBar !== 1 && s.playing) {
+      d.el.classList.add('beat');
+      setTimeout(() => d.el.classList.remove('beat'), 110);
+    }
+    d.lastBar = s.bar;
+
+    drawOverview(d, track, pos);
+    drawDetail(d, track, pos, s.playing);
+  }
+}
+
+/* ---------------------------------------------------------------- transport */
+function applyState(e) {
+  last = e; receivedAt = performance.now();
+
+  const modeName = e.mode_kind === 'vcdj' ? T('modeVcdj')
+                 : e.mode_kind === 'sniffer' ? T('modeSniffer') : (e.mode || '—');
+  document.getElementById('p-mode').innerHTML =
+    `${T('mode')} <b>${modeName}</b>${e.mode_detail ? ' · ' + e.mode_detail : ''}`;
+
+  const lib = document.getElementById('p-lib');
+  lib.innerHTML = e.library
+    ? `${T('library')} <b>${e.library.tracks} ${T('tracks')}</b>`
+    : `${T('library')} <b>${e.library_error ? '—' : T('connecting')}</b>`;
+  lib.title = e.library_error || '';
+
+  const devices = e.devices || [];
+  document.getElementById('p-dev').innerHTML = devices.length
+    ? `${devices.length} ${T('devices')} <b>${devices[0].name}</b>`
+    : T('noDevices');
+
+  const any = e.decks.length > 0;
+  document.getElementById('led').className = 'led ' + (any ? 'up' : 'down');
+  document.getElementById('waiting').classList.toggle('show', !any);
+  if (!any) {
+    document.getElementById('waiting-text').textContent =
+      devices.length ? T('seenNoStatus') : T('searching');
+  }
+  prune(visible(e.decks));           // drop decks that went quiet or no longer fit
+}
+
+function connect() {
+  const es = new EventSource('/api/events');
+  es.onmessage = ev => applyState(JSON.parse(ev.data));
+  es.onerror = () => {
+    document.getElementById('led').className = 'led down';
+    es.close();
+    setTimeout(connect, 1500);
+  };
+}
+
+document.querySelectorAll('#deck-switch button').forEach(
+  b => b.addEventListener('click', () => setDeckCount(+b.dataset.n)));
+document.querySelectorAll('#zoom-switch button').forEach(
+  b => b.addEventListener('click', () => setZoom(+b.dataset.s)));
+// + and - zoom too, so it can be driven without leaving the keyboard
+document.addEventListener('keydown', ev => {
+  if (ev.key === '+' || ev.key === '=') stepZoom(-1);
+  else if (ev.key === '-' || ev.key === '_') stepZoom(1);
+});
+document.querySelectorAll('#lang-switch button').forEach(
+  b => b.addEventListener('click', () => { lang = b.dataset.lang; applyLang(); }));
+
+setDeckCount(maxDecks);
+setZoom(visibleSeconds);
+applyLang();
+connect();
+render();
+</script>
+</body>
+</html>
